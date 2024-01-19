@@ -1,5 +1,6 @@
 -- Update the user's average_score in the users table
 -- Calculate average weighted score (avoid division by zero)
+DELIMITER //
 
 CREATE PROCEDURE ComputeAverageWeightedScoreForUser(IN user_id_param INT)
 BEGIN
@@ -24,3 +25,5 @@ BEGIN
     WHERE id = user_id_param;
 
 END //
+
+DELIMITER ;
