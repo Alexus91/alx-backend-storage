@@ -18,6 +18,20 @@ def count_calls(method: Callable) -> Callable:
         return method(self, *args, **kwargs)
     return wrapper
 
+def call_history(method: Callable) -> Callable:
+    """ memorize user actions"""
+    method_key = method.__qualname__
+    inp = method_key + ':inputs'
+    outp = method_key + ':outputs'
+
+    @wraps(method)
+    def wrapper(self, *args, **kwds):
+        """ function  wrapped """
+        self._redis.rpush(inp, str(args))
+        key = method(self, *args, **kwds)
+        self._redis.rpush(outp, str(key))
+        return key
+    return wrapper
 
 class Cache:
     """
@@ -28,6 +42,7 @@ class Cache:
         self._redis.flushdb()
 
     @count_calls
+    @call_history
     def store(self, data: Union[str, bytes, int, float]) -> str:
         key = str(uuid4())
         self._redis.mset({key: data})
