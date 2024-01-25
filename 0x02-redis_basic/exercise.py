@@ -1,43 +1,46 @@
 #!/usr/bin/env python3
 """ create a connection with redis database """
 import redis
-import uuid
-from typing import Union, Callable
+from uuid import uuid4
+from typing import Union, Callable, Optional
 from functools import wraps
 
 
+def count_calls(method: Callable) -> Callable:
+    """ count method """
+    method_key = method.__qualname__
+
+
+    @wraps(method)
+    def wrapper(self, *args, **kwargs):
+        """wrapped  """
+        self._redis.incr(method_key)
+        return method(self, *args, **kwargs)
+    return wrapper
+
+
 class Cache:
+    """
+    store informations
+    """
     def __init__(self):
         self._redis = redis.Redis()
         self._redis.flushdb()
 
-    def count_calls(method: Callable) -> Callable:
-        counts = {}
-
-        @wraps(method)
-        def wrapper(self, *args, **kwargs):
-            key = method.__qualname__
-            counts[key] = counts.get(key, 0) + 1
-            self._redis.set(key, counts[key])
-            return method(self, *args, **kwargs)
-
-        return wrapper
-
     @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
-        key = str(uuid.uuid4())
-        self._redis.set(key, data)
+        key = str(uuid4())
+        self._redis.mset({key: data})
         return key
 
-    def get(self, key: str, fn: Callable = None) -> Union
-    [str, bytes, int, float, None]:
+    def get(self, key: str, fn: Optional[Callable] = None) -> Union[str, bytes, int, float]:
         data = self._redis.get(key)
-        if data is None:
-            return None
-        return fn(data) if fn else data
+        if (fn is not None):
+            return fn(data)
+        return data
 
-    def get_str(self, key: str) -> Union[str, None]:
-        return self.get(key, fn=lambda d: d.decode("utf-8"))
+    def get_str(self, data: str) -> str:
+        return data.decode('utf-8')
 
-    def get_int(self, key: str) -> Union[int, None]:
-        return self.get(key, fn=int)
+    def get_int(self, data: str) -> int:
+        return int(data)
