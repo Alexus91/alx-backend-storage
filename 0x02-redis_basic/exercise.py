@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-""" create a connection with redis database """
+""" connection with redis database """
 import redis
 from uuid import uuid4
-from typing import Union, Callable, Optional
+from typing import Callable, Optional, Union
 from functools import wraps
 
 
@@ -10,13 +10,13 @@ def count_calls(method: Callable) -> Callable:
     """ count method """
     method_key = method.__qualname__
 
-
     @wraps(method)
     def wrapper(self, *args, **kwargs):
         """wrapped  """
         self._redis.incr(method_key)
         return method(self, *args, **kwargs)
     return wrapper
+
 
 def call_history(method: Callable) -> Callable:
     """ memorize user actions"""
@@ -33,6 +33,23 @@ def call_history(method: Callable) -> Callable:
         return key
     return wrapper
 
+
+def replay(func: Callable) -> None:
+    """ Display the history of calls for a particular function """
+    method_key = func.__qualname__
+    inp = method_key + ':inputs'
+    outp = method_key + ':outputs'
+    redis = method.__self__._redis
+    count = redis.get(method_key).decode("utf-8")
+    print("{} was called {} times:".format(method_key, count))
+    ListInput = redis.lrange(inp, 0, -1)
+    ListOutput = redis.lrange(outp, 0, -1)
+    allData = list(zip(ListInput, ListOutput))
+    for key, data in allData:
+        attr, data = key.decode("utf-8"), data.decode("utf-8")
+        print("{}(*{}) -> {}".format(method_key, attr, data))
+
+
 class Cache:
     """
     store informations
@@ -48,7 +65,8 @@ class Cache:
         self._redis.mset({key: data})
         return key
 
-    def get(self, key: str, fn: Optional[Callable] = None) -> Union[str, bytes, int, float]:
+    def get(self, key: str, fn: Optional
+            [Callable] = None) -> Union[str, bytes, int, float]:
         data = self._redis.get(key)
         if (fn is not None):
             return fn(data)
