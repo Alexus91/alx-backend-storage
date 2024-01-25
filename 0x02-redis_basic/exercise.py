@@ -2,7 +2,8 @@
 """ create a connection with redis database """
 import redis
 import uuid
-from typing import Union, cllable
+from typing import Union, Callable
+from functools import wraps
 
 
 class Cache:
@@ -10,6 +11,19 @@ class Cache:
         self._redis = redis.Redis()
         self._redis.flushdb()
 
+    def count_calls(method: Callable) -> Callable:
+        counts = {}
+
+        @wraps(method)
+        def wrapper(self, *args, **kwargs):
+            key = method.__qualname__
+            counts[key] = counts.get(key, 0) + 1
+            self._redis.set(key, counts[key])
+            return method(self, *args, **kwargs)
+
+        return wrapper
+
+    @count_calls
     def store(self, data: Union[str, bytes, int, float]) -> str:
         key = str(uuid.uuid4())
         self._redis.set(key, data)
